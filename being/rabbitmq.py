@@ -425,8 +425,3 @@ class RabbitMQIn(Block):
             messages.append(self.queue.get())
         
         print(messages)
-
-
-if __name__ == "__main__":
-    node = RabbitMQIn()
-    awake(node)
