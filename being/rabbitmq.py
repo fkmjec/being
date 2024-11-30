@@ -15,6 +15,7 @@ from being.serialization import EOT, FlyByDecoder, dumps
 
 from queue import Queue
 import logging
+import threading
 
 # taken from the rabbitMQ connection examples and modified
 class AMPQConsumer(object):
@@ -377,6 +378,7 @@ class AMPQConsumer(object):
 
         """
         self._connection = self.connect()
+        print("connected")
         self._connection.ioloop.start()
 
     def stop(self):
@@ -404,18 +406,14 @@ class AMPQConsumer(object):
 class RabbitMQIn(Block):
     """RabbitMQ in block. Receive arbitrary messages over rabbitmq."""
 
-    def __init__(self, **kwargs):
+    def __init__(self, ampq_url, exchange, queue, routing_key, **kwargs):
         super().__init__(**kwargs)
-        ampq_url = "TODO"
-        # TODO: replace this with actual inputs 
-        exchange = 'message'
-        queue = 'text'
-        routing_key = 'example.text'
         self.queue: Queue = Queue()
         self.logger = logging.getLogger(__name__)
         self._consumer = AMPQConsumer(ampq_url, exchange, queue, routing_key, self.queue, self.logger)
         # TODO: are reconnections an issue?
-        self._consumer.run()
+        self._consumer_thread = threading.Thread(target=self._consumer.run)
+        self._consumer_thread.start()
 
 
     def update(self):
