@@ -413,7 +413,7 @@ class AMPQConsumer(object):
             self.logger.info("Stopped")
 
 # TODO: remove this logging thing after we're done, it spams
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.WARNING)
 
 class RabbitMQInSubscriber(Block):
     """RabbitMQ input block. Receive arbitrary messages over rabbitmq."""
@@ -435,7 +435,7 @@ class RabbitMQInSubscriber(Block):
         # get all messages out of queue
         messages = []
         while not self.queue.empty():
-            messages.append(self.queue.get())
+            messages.append(self.queue.get().decode())
         self.logger.debug(messages)
         self.output.send(messages)
 

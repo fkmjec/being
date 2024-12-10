@@ -26,8 +26,7 @@ class InputPrintingNode(Block):
     def update(self):
         for msg in self.input.receive():
             first = msg
-            print(first)
-            time.sleep(1)
+            # time.sleep(1)
 
 class OutputGeneratingNode(Block):
     def __init__(self):
@@ -38,7 +37,7 @@ class OutputGeneratingNode(Block):
     def update(self):
         self.output.send(f"{self.counter} test message")
         self.counter += 1
-        time.sleep(1)
+        # time.sleep(1)
 
 if __name__ == "__main__":
     ampq_url = "amqp://guest:guest@localhost:5672/"
