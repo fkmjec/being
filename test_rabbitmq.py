@@ -4,7 +4,7 @@ import logging
 import time
 
 from being.awakening import awake
-from being.rabbitmq import RabbitMQInSubscriber
+from being.rabbitmq import RabbitMQInSubscriber, RabbitMQOutPublisher
 from being.backends import CanBackend
 from being.behavior import Behavior
 from being.constants import FORWARD, BACKWARD, TAU
@@ -29,13 +29,28 @@ class InputPrintingNode(Block):
             print(first)
             time.sleep(1)
 
+class OutputGeneratingNode(Block):
+    def __init__(self):
+        super().__init__()
+        self.counter = 0
+        self.add_message_output()
+
+    def update(self):
+        self.output.send(f"{self.counter} test message")
+        self.counter += 1
+        time.sleep(1)
+
 if __name__ == "__main__":
     ampq_url = "amqp://guest:guest@localhost:5672/"
     # TODO: replace this with actual inputs
     exchange = 'fanout'
 
-    node = RabbitMQInSubscriber(ampq_url, exchange)
-    f = InputPrintingNode()
+    subscriber = RabbitMQInSubscriber(ampq_url, exchange)
+    publisher = RabbitMQOutPublisher(ampq_url, exchange)
+
+    input_printing = InputPrintingNode()
+    output_generating = OutputGeneratingNode()
     # print the outputs of the node to test it
-    node | f
-    awake(node)
+    output_generating | publisher
+    subscriber | input_printing
+    awake(output_generating, subscriber)

@@ -447,3 +447,42 @@ class RabbitMQInSubscriber(Block):
 # TODO: specify exchange name well
 # TODO: change params of the consumer
 # this is a bit problematic, we might either need a fanout or something else
+
+class AMPQPublisher:
+    def __init__(self, url, exchange, logger):
+        self.connection = pika.BlockingConnection(
+            pika.URLParameters(url))
+        self.exchange = exchange
+        self.channel = self.connection.channel()
+        self.channel.exchange_declare(exchange=self.exchange, exchange_type='fanout')
+        self.logger = logger
+
+    def send(self, msg):
+        # TODO: check if the channel is still open (I guess it might just close without keepalive messages?)
+        self.channel.basic_publish(exchange=self.exchange, routing_key='', body=msg)
+
+    def stop(self):
+        self.connection.close()
+
+class RabbitMQOutPublisher(Block):
+    """RabbitMQ input block. Receive arbitrary messages over rabbitmq."""
+
+    def __init__(self, ampq_url, exchange, **kwargs):
+        super().__init__(**kwargs)
+        self.logger = logging.getLogger(__name__)
+        self.logger.info("Started Publisher node")
+        # TODO: are reconnections an issue? Should we have a reconnection mechanism?
+        self._publisher = AMPQPublisher(
+            ampq_url, exchange, self.logger
+        )
+        add_callback(self.stop)
+        self.add_message_input()
+
+    def update(self):
+        # get all messages out of input and forward to the exchange
+        for msg in self.input.receive():
+            self.logger.info(f"Publishing message {msg}")
+            self._publisher.send(msg)
+
+    def stop(self):
+        self._publisher.stop()
