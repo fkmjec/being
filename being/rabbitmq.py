@@ -63,7 +63,7 @@ class AMPQConsumer(object):
         self._consumer_tag = None
         self._url = amqp_url
         self._consuming = False
-        self.output_queue = Queue
+        self.output_queue = output_queue
         self.logger = logger
         # In production, experiment with higher prefetch values
         # for higher consumer throughput
@@ -338,6 +338,7 @@ class AMPQConsumer(object):
             properties.app_id,
             body,
         )
+        self.output_queue.put(body)
         self.acknowledge_message(basic_deliver.delivery_tag)
 
     def acknowledge_message(self, delivery_tag):
@@ -413,7 +414,7 @@ class AMPQConsumer(object):
                 self._connection.ioloop.stop()
             self.logger.info("Stopped")
 
-
+logging.basicConfig(level=logging.INFO)
 class RabbitMQIn(Block):
     """RabbitMQ in block. Receive arbitrary messages over rabbitmq."""
 
@@ -427,6 +428,7 @@ class RabbitMQIn(Block):
         )
         self._consumer_thread = threading.Thread(target=self._consumer.run)
         self._consumer_thread.start()
+        print(exchange, queue, routing_key)
         add_callback(self.stop)
 
     def update(self):

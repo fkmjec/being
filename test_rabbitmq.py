@@ -15,10 +15,10 @@ from being.resources import register_resource, manage_resources
 
 if __name__ == "__main__":
     ampq_url = "amqp://guest:guest@localhost:5672/"
-    # TODO: replace this with actual inputs 
+    # TODO: replace this with actual inputs
     exchange = 'message'
-    queue = 'text'
-    routing_key = 'example.text'
+    queue = 'hello'
+    routing_key = 'message.hello'
 
     node = RabbitMQIn(ampq_url, exchange, queue, routing_key)
     awake(node)
