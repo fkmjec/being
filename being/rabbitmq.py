@@ -10,6 +10,7 @@ from pika.exchange_type import ExchangeType
 
 from being.block import Block
 from being.awakening import awake
+from being.connectables import MessageOutput
 from being.resources import add_callback
 from being.serialization import EOT, FlyByDecoder, dumps
 
@@ -414,9 +415,11 @@ class AMPQConsumer(object):
                 self._connection.ioloop.stop()
             self.logger.info("Stopped")
 
+# TODO: remove this logging thing after we're done, it spams
 logging.basicConfig(level=logging.INFO)
+
 class RabbitMQIn(Block):
-    """RabbitMQ in block. Receive arbitrary messages over rabbitmq."""
+    """RabbitMQ input block. Receive arbitrary messages over rabbitmq."""
 
     def __init__(self, ampq_url, exchange, queue, routing_key, **kwargs):
         super().__init__(**kwargs)
@@ -430,15 +433,15 @@ class RabbitMQIn(Block):
         self._consumer_thread.start()
         print(exchange, queue, routing_key)
         add_callback(self.stop)
+        self.add_message_output()
 
     def update(self):
         # get all messages out of queue
         messages = []
         while not self.queue.empty():
             messages.append(self.queue.get())
-        if messages:
-            print(messages)
-        return messages
+        self.logger.debug(messages)
+        self.output.send(messages)
 
     def stop(self):
         self._consumer.stop()
