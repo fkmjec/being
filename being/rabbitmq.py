@@ -35,17 +35,12 @@ class AMPQConsumer(object):
     """
 
     # TODO change all this to be variable by queue and exchange
-    EXCHANGE = "message"
-    EXCHANGE_TYPE = ExchangeType.topic
-    QUEUE = "text"
-    ROUTING_KEY = "example.text"
+    EXCHANGE_TYPE = ExchangeType.fanout
 
     def __init__(
         self,
         amqp_url,
         exchange: str,
-        queue: str,
-        routing_key: str,
         output_queue: Queue,
         logger: logging.Logger,
     ):
@@ -69,9 +64,11 @@ class AMPQConsumer(object):
         # In production, experiment with higher prefetch values
         # for higher consumer throughput
         self._prefetch_count = 1
-        self.EXCHANGE = exchange
-        self.QUEUE = queue
-        self.ROUTING_KEY = routing_key
+        self.exchange = exchange
+        # empty queue name for random queue name generation
+        self.queue = ""
+        # blank routing key as it is not used in fanout exchanges
+        self.routing_key = ""
 
     def connect(self):
         """This method connects to RabbitMQ, returning the connection handle.
@@ -166,7 +163,7 @@ class AMPQConsumer(object):
         self.logger.info("Channel opened")
         self._channel = channel
         self.add_on_channel_close_callback()
-        self.setup_exchange(self.EXCHANGE)
+        self.setup_exchange(self.exchange)
 
     def add_on_channel_close_callback(self):
         """This method tells pika to call the on_channel_closed method if
@@ -215,7 +212,7 @@ class AMPQConsumer(object):
 
         """
         self.logger.info("Exchange declared: %s", userdata)
-        self.setup_queue(self.QUEUE)
+        self.setup_queue(self.queue)
 
     def setup_queue(self, queue_name):
         """Setup the queue on RabbitMQ by invoking the Queue.Declare RPC
@@ -227,7 +224,7 @@ class AMPQConsumer(object):
         """
         self.logger.info("Declaring queue %s", queue_name)
         cb = functools.partial(self.on_queue_declareok, userdata=queue_name)
-        self._channel.queue_declare(queue=queue_name, callback=cb)
+        self._channel.queue_declare(queue=queue_name, callback=cb, exclusive=True)
 
     def on_queue_declareok(self, _unused_frame, userdata):
         """Method invoked by pika when the Queue.Declare RPC call made in
@@ -242,11 +239,11 @@ class AMPQConsumer(object):
         """
         queue_name = userdata
         self.logger.info(
-            "Binding %s to %s with %s", self.EXCHANGE, queue_name, self.ROUTING_KEY
+            "Binding %s to %s with %s", self.exchange, queue_name, self.routing_key
         )
         cb = functools.partial(self.on_bindok, userdata=queue_name)
         self._channel.queue_bind(
-            queue_name, self.EXCHANGE, routing_key=self.ROUTING_KEY, callback=cb
+            queue_name, self.exchange, routing_key=self.routing_key, callback=cb
         )
 
     def on_bindok(self, _unused_frame, userdata):
@@ -294,7 +291,7 @@ class AMPQConsumer(object):
         """
         self.logger.info("Issuing consumer related RPC commands")
         self.add_on_cancel_callback()
-        self._consumer_tag = self._channel.basic_consume(self.QUEUE, self.on_message)
+        self._consumer_tag = self._channel.basic_consume(self.queue, self.on_message)
         self.was_consuming = True
         self._consuming = True
 
@@ -418,20 +415,19 @@ class AMPQConsumer(object):
 # TODO: remove this logging thing after we're done, it spams
 logging.basicConfig(level=logging.INFO)
 
-class RabbitMQIn(Block):
+class RabbitMQInSubscriber(Block):
     """RabbitMQ input block. Receive arbitrary messages over rabbitmq."""
 
-    def __init__(self, ampq_url, exchange, queue, routing_key, **kwargs):
+    def __init__(self, ampq_url, exchange, **kwargs):
         super().__init__(**kwargs)
         self.queue: Queue = Queue()
         self.logger = logging.getLogger(__name__)
         # TODO: are reconnections an issue? Should we have a reconnection mechanism?
         self._consumer = AMPQConsumer(
-            ampq_url, exchange, queue, routing_key, self.queue, self.logger
+            ampq_url, exchange, self.queue, self.logger
         )
         self._consumer_thread = threading.Thread(target=self._consumer.run)
         self._consumer_thread.start()
-        print(exchange, queue, routing_key)
         add_callback(self.stop)
         self.add_message_output()
 
@@ -446,3 +442,8 @@ class RabbitMQIn(Block):
     def stop(self):
         self._consumer.stop()
         self._consumer_thread.join()
+
+# TODO: add exclusive tag to the subscribe queue
+# TODO: specify exchange name well
+# TODO: change params of the consumer
+# this is a bit problematic, we might either need a fanout or something else
