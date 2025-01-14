@@ -15,6 +15,9 @@ class HeadPosition:
     def serialize(self):
         return json.dumps(vars(self))
 
+    def to_dict(self):
+        return vars(self)
+
     #TODO should this have an input in bytes or str?
     # currently it will be str and we will see how that goes
     @classmethod
