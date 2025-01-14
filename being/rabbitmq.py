@@ -9,17 +9,14 @@ import functools
 from pika.exchange_type import ExchangeType
 
 from being.block import Block
-from being.awakening import awake
-from being.connectables import MessageOutput
 from being.resources import add_callback
-from being.serialization import EOT, FlyByDecoder, dumps
 
 from queue import Queue
 import logging
 import threading
 
 
-# taken from the rabbitMQ connection examples and modified
+# taken from the rabbitMQ connection examples at https://github.com/pika/pika/blob/main/examples/asynchronous_publisher_example.py and modified
 class AMPQConsumer(object):
     """This is an example consumer that will handle unexpected interactions
     with RabbitMQ such as channel and connection closures.
@@ -412,20 +409,15 @@ class AMPQConsumer(object):
                 self._connection.ioloop.stop()
             self.logger.info("Stopped")
 
-# TODO: remove this logging thing after we're done, it spams
-logging.basicConfig(level=logging.WARNING)
 
 class RabbitMQInSubscriber(Block):
-    """RabbitMQ input block. Receive arbitrary messages over rabbitmq."""
+    """RabbitMQ input block. Receive arbitrary messages over rabbitmq and forward them to the being network."""
 
     def __init__(self, ampq_url, exchange, **kwargs):
         super().__init__(**kwargs)
         self.queue: Queue = Queue()
         self.logger = logging.getLogger(__name__)
-        # TODO: are reconnections an issue? Should we have a reconnection mechanism?
-        self._consumer = AMPQConsumer(
-            ampq_url, exchange, self.queue, self.logger
-        )
+        self._consumer = AMPQConsumer(ampq_url, exchange, self.queue, self.logger)
         self._consumer_thread = threading.Thread(target=self._consumer.run)
         self._consumer_thread.start()
         add_callback(self.stop)
@@ -443,38 +435,31 @@ class RabbitMQInSubscriber(Block):
         self._consumer.stop()
         self._consumer_thread.join()
 
-# TODO: add exclusive tag to the subscribe queue
-# TODO: specify exchange name well
-# TODO: change params of the consumer
-# this is a bit problematic, we might either need a fanout or something else
 
 class AMPQPublisher:
     def __init__(self, url, exchange, logger):
-        self.connection = pika.BlockingConnection(
-            pika.URLParameters(url))
+        self.connection = pika.BlockingConnection(pika.URLParameters(url))
         self.exchange = exchange
         self.channel = self.connection.channel()
-        self.channel.exchange_declare(exchange=self.exchange, exchange_type='fanout')
+        self.channel.exchange_declare(exchange=self.exchange, exchange_type="fanout")
         self.logger = logger
 
     def send(self, msg):
         # TODO: check if the channel is still open (I guess it might just close without keepalive messages?)
-        self.channel.basic_publish(exchange=self.exchange, routing_key='', body=msg)
+        self.channel.basic_publish(exchange=self.exchange, routing_key="", body=msg)
 
     def stop(self):
         self.connection.close()
 
+
 class RabbitMQOutPublisher(Block):
-    """RabbitMQ input block. Receive arbitrary messages over rabbitmq."""
+    """RabbitMQ output block. Send arbitrary messages over rabbitmq."""
 
     def __init__(self, ampq_url, exchange, **kwargs):
         super().__init__(**kwargs)
         self.logger = logging.getLogger(__name__)
         self.logger.info("Started Publisher node")
-        # TODO: are reconnections an issue? Should we have a reconnection mechanism?
-        self._publisher = AMPQPublisher(
-            ampq_url, exchange, self.logger
-        )
+        self._publisher = AMPQPublisher(ampq_url, exchange, self.logger)
         add_callback(self.stop)
         self.add_message_input()
 
