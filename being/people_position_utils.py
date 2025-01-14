@@ -2,10 +2,14 @@ from being.block import Block
 import json
 
 class HeadPosition:
-    def __init__(self, position: tuple, velocity: tuple, id: tuple, timestamp: int):
+    def __init__(self, position: tuple, velocity: tuple, id: tuple, timestamp: float):
+        # position in mm
         self.position = position
+        # velocity in mm/s
         self.velocity = velocity
+        # id is an identifier of a person kept as long as they are tracked
         self.id = id
+        # timestamp is in seconds
         self.timestamp = timestamp
 
     def serialize(self):
