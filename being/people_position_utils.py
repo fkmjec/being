@@ -18,7 +18,7 @@ class HeadPosition:
     def to_dict(self):
         return vars(self)
 
-    #TODO should this have an input in bytes or str?
+    # TODO should this have an input in bytes or str?
     # currently it will be str and we will see how that goes
     @classmethod
     def deserialize(cls, serial_repr: str):
@@ -30,19 +30,28 @@ class HeadPosition:
         return HeadPosition(position, velocity, id, timestamp)
 
 
+def deserialize_head_position_list(hps_ser: str):
+    hps_list = json.loads(hps_ser)
+    hps = []
+    for hp_ser in hps_list:
+        hps.append(HeadPosition.deserialize(hp_ser).to_dict())
+    return hps
+
+
 class HeadPositionParser(Block):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.add_message_input()
         self.add_message_output()
-    
+        self.positions = []
+
     def update(self):
         positions = []
         received = self.input.receive()
 
         for msg in received:
             for hp_ser in msg:
-                positions.append(HeadPosition.deserialize(hp_ser))
-        self.output.send(positions)
-        
-
+                positions += deserialize_head_position_list(hp_ser)
+        if positions:
+            self.positions = positions
+        self.output.send(self.positions)
