@@ -15,6 +15,7 @@ from being.motors import RotaryMotor
 from being.resources import register_resource, manage_resources
 from being.connectables import MessageInput
 from being.block import Block
+from being.people_position_utils import HeadPositionParser, HeadPosition
 
 class InputPrintingNode(Block):
     """Example block printing and passing on messages."""
@@ -35,21 +36,22 @@ class OutputGeneratingNode(Block):
         self.add_message_output()
 
     def update(self):
-        self.output.send(f"{self.counter} test message")
+        hp = HeadPosition((0.0, 0.0, 0.0), (0.0, 0.0, 0.0), 1, self.counter)
+        self.output.send(hp.serialize())
         self.counter += 1
         # time.sleep(1)
 
 if __name__ == "__main__":
     ampq_url = "amqp://guest:guest@localhost:5672/"
-    # TODO: replace this with actual inputs
     exchange = 'fanout'
 
     subscriber = RabbitMQInSubscriber(ampq_url, exchange)
     publisher = RabbitMQOutPublisher(ampq_url, exchange)
+    parser = HeadPositionParser()
 
     input_printing = InputPrintingNode()
     output_generating = OutputGeneratingNode()
     # print the outputs of the node to test it
     output_generating | publisher
-    subscriber | input_printing
+    subscriber | parser
     awake(output_generating, subscriber)

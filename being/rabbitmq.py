@@ -428,7 +428,6 @@ class RabbitMQInSubscriber(Block):
         messages = []
         while not self.queue.empty():
             messages.append(self.queue.get().decode())
-        self.logger.debug(messages)
         self.output.send(messages)
 
     def stop(self):
